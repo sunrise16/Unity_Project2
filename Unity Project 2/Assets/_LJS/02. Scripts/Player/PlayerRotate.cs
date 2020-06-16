@@ -13,7 +13,7 @@ public class PlayerRotate : MonoBehaviour
     void Update()
     {
         // 플레이어 회전
-        // Rotate();
+        Rotate();
     }
 
     // 플레이어 회전 처리 함수

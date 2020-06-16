@@ -9,18 +9,28 @@ public class PlayerMove : MonoBehaviour
 
     // 플레이어 이동 속도
     public float speed = 5.0f;
+    // 플레이어 점프 파워값
+    public float jumpPower = 2.0f;
+    // 플레이어 중력값
+    public float gravity = -20.0f;
+    // 낙하 속도값
+    private float velocityY = 0;
+    // 플레이어 2단 점프 판별값
+    private int jumpCount = 0;
 
-    private void Start()
+    void Start()
     {
+        // 캐릭터 컨트롤러 컴포넌트 가져오기
         cc = GetComponent<CharacterController>();
     }
 
-    // Update is called once per frame
     void Update()
     {
+        // 플레이어 이동
         Move();
     }
 
+    // 플레이어 이동 함수
     void Move()
     {
         float h = Input.GetAxis("Horizontal");
@@ -34,7 +44,25 @@ public class PlayerMove : MonoBehaviour
         // 카메라가 보는 방향으로 이동해야 함
         dir = Camera.main.transform.TransformDirection(dir);
         // transform.Translate(dir * speed * Time.deltaTime);
+        // cc.Move(dir * speed * Time.deltaTime);
 
+        // 중력을 적용시킨 후 이동
+        velocityY += gravity * (Time.deltaTime * 0.3f);
+        dir.y = velocityY;
         cc.Move(dir * speed * Time.deltaTime);
+
+        // 캐릭터 점프 (점프 버튼을 누르면 수직속도에 점프 파워를 넣음)
+        // 땅에 닿으면 낙하 속도와 점프 카운트를 0으로 초기화
+        if (cc.collisionFlags == CollisionFlags.Below)
+        {
+            velocityY = 0;
+            jumpCount = 0;
+        }
+        // 점프키 입력 시 점프
+        if (Input.GetButtonDown("Jump") && jumpCount < 2)
+        {
+            velocityY = jumpPower;
+            jumpCount++;
+        }
     }
 }
