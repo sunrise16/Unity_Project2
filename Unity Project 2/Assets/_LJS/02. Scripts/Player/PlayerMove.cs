@@ -4,8 +4,14 @@ using UnityEngine;
 
 public class PlayerMove : MonoBehaviour
 {
+    #region 컴포넌트 변수 관련
+
     // 캐릭터 컨트롤러 컴포넌트를 담을 변수
     private CharacterController cc;
+
+    #endregion
+
+    #region 제어값 변수 관련
 
     // 플레이어 이동 속도
     public float speed = 5.0f;
@@ -18,19 +24,30 @@ public class PlayerMove : MonoBehaviour
     // 플레이어 2단 점프 판별값
     private int jumpCount = 0;
 
+    #endregion
+
     void Start()
     {
+        #region 컴포넌트 변수 관련 초기화
+
         // 캐릭터 컨트롤러 컴포넌트 가져오기
         cc = GetComponent<CharacterController>();
+
+        #endregion
     }
 
     void Update()
     {
+        #region 실시간 함수 실행
+
         // 플레이어 이동
         Move();
+
+        #endregion
     }
 
-    // 플레이어 이동 함수
+    #region 플레이어 이동 함수
+
     void Move()
     {
         float h = Input.GetAxis("Horizontal");
@@ -65,4 +82,6 @@ public class PlayerMove : MonoBehaviour
             jumpCount++;
         }
     }
+
+    #endregion
 }

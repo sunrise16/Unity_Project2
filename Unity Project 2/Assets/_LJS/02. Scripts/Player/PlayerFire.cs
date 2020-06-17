@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class PlayerFire : MonoBehaviour
 {
+    #region 컴포넌트 변수 관련
+
     // 폭탄 오브젝트
     public GameObject bombObject;
     // 폭탄 투척 위치 기준점
@@ -11,16 +13,29 @@ public class PlayerFire : MonoBehaviour
     // 총알 착탄 이펙트 오브젝트
     public GameObject bulletEffect;
 
+    #endregion
+
+    #region 제어값 변수 관련
+
     // Ray의 최대 사정거리
     public float rayMaxDistance = 30.0f;
     // 폭탄 투척 파워
     public float bombThrowPower = 20.0f;
 
+    #endregion
+
     // Update is called once per frame
     void Update()
     {
+        #region 실시간 함수 실행
+
+        // 총알 및 수류탄 발사
         Fire();
+
+        #endregion
     }
+
+    #region 총알 및 수류탄 발사 함수
 
     void Fire()
     {
@@ -69,4 +84,6 @@ public class PlayerFire : MonoBehaviour
             // ForceMode.VelocityChange = 순간적인 힘을 가함 (질량의 영향을 받지 않음)
         }
     }
+
+    #endregion
 }
