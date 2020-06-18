@@ -395,8 +395,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d185d1df288e3740a085f27672dcc61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  enemyState: 0
+  enemyHP: 100
+  enemyAttackValue: 5
   enemyMoveSpeed: 3
   enemyGravity: -20
+  findRange: 12
+  attackRange: 1.5
+  attackDelay: 2
+  moveRange: 30
 --- !u!143 &752488233
 CharacterController:
   m_ObjectHideFlags: 0

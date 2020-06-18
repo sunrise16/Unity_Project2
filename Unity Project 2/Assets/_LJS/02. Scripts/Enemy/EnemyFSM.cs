@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using JetBrains.Annotations;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,28 +8,30 @@ public class EnemyFSM : MonoBehaviour
     #region 컴포넌트 변수 관련
 
     // 몬스터 상태값 열거문
-    public enum EnemyState { Idle, Move, Attack, Return, Damaged, Die}
+    public enum EnemyState { Idle, Move, Attack, Return, Damaged, Die }
     // 타겟 오브젝트
     private GameObject targetObject;
-    // 캐릭터 컨트롤러 컴포넌트
+    // 캐릭터 컨트롤러
     private CharacterController cc;
 
     #endregion
 
     #region 제어값 변수 관련
 
-    // 몬스터의 최초 스폰 지점
-    private Vector3 spawnPoint;
+    #region 메인 제어 변수
+
     // 몬스터의 상태
-    private EnemyState enemyState;
+    public EnemyState enemyState;
     // 몬스터와 타겟(플레이어) 오브젝트와의 거리값
     private float distance;
+    // 몬스터의 체력
+    public float enemyHP;
+    // 몬스터의 공격력
+    public float enemyAttackValue;
     // 몬스터의 이동 속도
     public float enemyMoveSpeed;
-    // 몬스터의 중력값
-    public float enemyGravity;
-    // 몬스터의 낙하 속도값
-    private float enemyVelocityY;
+
+    #endregion
 
     #region Idle 상태에 필요한 변수
 
@@ -43,17 +46,21 @@ public class EnemyFSM : MonoBehaviour
 
     // 몬스터와 타겟 간의 방향
     private Vector3 moveDirection;
+    // 플레이어 감지 범위
+    public float findRange;
 
     #endregion
 
     #region Attack 상태에 필요한 변수
 
-    // 몬스터의 공격 사정거리
-    private float attackRange;
-    // 몬스터의 공격 범위
-    private float attackAngle;
     // 타겟 오브젝트의 레이어 값
     private LayerMask targetLayer;
+    // 몬스터의 공격 사정거리
+    public float attackRange;
+    // 몬스터의 공격 딜레이 기준값
+    public float attackDelay;
+    // 몬스터의 공격 딜레이값
+    private float attackDelayTimer;
 
     #endregion
 
@@ -61,6 +68,10 @@ public class EnemyFSM : MonoBehaviour
 
     // Return 상태 제어값
     private bool enemyReturn = false;
+    // 몬스터의 최초 스폰 지점
+    private Vector3 spawnPoint;
+    // 시작 지점에서 최대 이동 가능한 범위
+    public float moveRange;
 
     #endregion
 
@@ -85,6 +96,9 @@ public class EnemyFSM : MonoBehaviour
     {
         #region 컴포넌트 변수 관련 초기화
 
+        // 몬스터의 상태 초기화
+        enemyState = EnemyState.Idle;
+
         // 타겟 오브젝트 지정 (플레이어)
         targetObject = GameObject.Find("Player");
 
@@ -97,16 +111,10 @@ public class EnemyFSM : MonoBehaviour
 
         // 몬스터의 최초 스폰 지점 설정
         spawnPoint = transform.position;
-        // 몬스터의 상태 초기화
-        enemyState = EnemyState.Idle;
+
         // 몬스터와 타겟(플레이어) 오브젝트와의 거리값 초기화
         distance = 0.0f;
-        // 몬스터의 낙하 속도값 초기화
-        enemyVelocityY = 0.0f;
-        // 몬스터의 공격 사정거리 초기화
-        attackRange = 5.0f;
-        // 몬스터의 공격 범위 초기화
-        attackAngle = 120.0f;
+
         // 타겟 오브젝트의 레이어 값 초기화
         targetLayer = LayerMask.NameToLayer("PLAYER");
 
@@ -114,7 +122,10 @@ public class EnemyFSM : MonoBehaviour
 
         #region 코루틴 함수 실행
 
+        // 몬스터 순찰 코루틴
         StartCoroutine(EnemyPatrol());
+
+        // 몬스터 공격 코루틴
         StartCoroutine(EnemyAttack());
 
         #endregion
@@ -128,12 +139,6 @@ public class EnemyFSM : MonoBehaviour
         // 몬스터와 타겟(플레이어) 오브젝트와의 거리값 갱신
         distance = Vector3.Distance(transform.position, targetObject.transform.position);
 
-        // 몬스터가 땅에 닿으면 낙하 속도와 점프 카운트를 0으로 초기화
-        if (cc.collisionFlags == CollisionFlags.Below)
-        {
-            enemyVelocityY = 0;
-        }
-
         #endregion
 
         #region 조건에 따른 상태 제어값 설정
@@ -141,14 +146,15 @@ public class EnemyFSM : MonoBehaviour
         #region Return 상태
 
         // Return 상태 활성화
-        if (Vector3.Distance(transform.position, spawnPoint) > 30.0f)
+        if (Vector3.Distance(transform.position, spawnPoint) >= moveRange)
         {
             enemyReturn = true;
         }
         // 스폰 위치로 돌아온 후 Return 상태 비활성화
-        if (enemyReturn == true && Vector3.Distance(transform.position, spawnPoint) <= 0.0f)
+        if (enemyReturn == true && Vector3.Distance(transform.position, spawnPoint) <= 0.1f)
         {
             enemyReturn = false;
+            enemyState = EnemyState.Idle;
         }
 
         #endregion
@@ -160,23 +166,8 @@ public class EnemyFSM : MonoBehaviour
 
         #region 조건에 따른 몬스터 상태값 설정
 
-        // 거리값이 12.0f 이상일 시 Idle 상태
-        if (Mathf.Abs(distance) >= 12.0f)
-        {
-            enemyState = EnemyState.Idle;
-        }
-        // 거리값이 1.5f 이상 12.0f 미만일 시 Move 상태
-        else if (Mathf.Abs(distance) >= 1.5f && Mathf.Abs(distance) < 12.0f)
-        {
-            enemyState = EnemyState.Move;
-        }
-        // 거리값이 1.5f 미만일 시 Attack 상태
-        else if (Mathf.Abs(distance) < 1.5f)
-        {
-            enemyState = EnemyState.Attack;
-        }
         // Return 상태가 활성화일 때
-        else if (enemyReturn == true)
+        if (enemyReturn == true)
         {
             enemyState = EnemyState.Return;
         }
@@ -189,6 +180,25 @@ public class EnemyFSM : MonoBehaviour
         else if (enemyDie == true)
         {
             enemyState = EnemyState.Die;
+        }
+        // 그 이외
+        else
+        {
+            // 거리값이 findRange 이상일 시 Idle 상태
+            if (Mathf.Abs(distance) >= findRange)
+            {
+                enemyState = EnemyState.Idle;
+            }
+            // 거리값이 attackRange 이상 findRange 미만일 시 Move 상태
+            else if (Mathf.Abs(distance) >= attackRange && Mathf.Abs(distance) < findRange)
+            {
+                enemyState = EnemyState.Move;
+            }
+            // 거리값이 attackRange 미만일 시 Attack 상태
+            else if (Mathf.Abs(distance) < attackRange)
+            {
+                enemyState = EnemyState.Attack;
+            }
         }
 
         #endregion
@@ -237,13 +247,11 @@ public class EnemyFSM : MonoBehaviour
         // 몬스터의 이동 속도 재설정
         enemyMoveSpeed = 2.0f;
 
-        // 순찰 지점을 향해 이동
-        // transform.Translate(patrolDirection * enemyMoveSpeed * Time.deltaTime);
+        // 순찰 지점을 향해 바라보기
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(patrolDirection), 10.0f * Time.deltaTime);
 
-        // 중력을 적용시킨 후 순찰 지점을 향해 이동
-        enemyVelocityY += enemyGravity * (Time.deltaTime * 0.3f);
-        patrolDirection.y = enemyVelocityY;
-        cc.Move(patrolDirection * enemyMoveSpeed * Time.deltaTime);
+        // 순찰 지점을 향해 이동
+        cc.SimpleMove(patrolDirection * enemyMoveSpeed);
     }
     private void Move()
     {
@@ -254,34 +262,104 @@ public class EnemyFSM : MonoBehaviour
 
         // 몬스터의 이동 속도 재설정
         enemyMoveSpeed = 4.0f;
+
         // 타겟의 방향 구하기
-        moveDirection = transform.position - targetObject.transform.position;
-        moveDirection.Normalize();
+        moveDirection = (targetObject.transform.position - transform.position).normalized;
+
         // 타겟을 향해 바라보기
-        transform.LookAt(targetObject.transform);
+        // transform.LookAt(targetObject.transform);
+        // transform.forward = Vector3.Lerp(transform.position, moveDirection, 1.0f * Time.deltaTime);
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), 10.0f * Time.deltaTime);
+
         // 타겟을 향해 이동
-        transform.Translate(moveDirection * enemyMoveSpeed * Time.deltaTime);
+        cc.SimpleMove(moveDirection * enemyMoveSpeed);
     }
     private void Attack()
     {
         // 1. 플레이어가 공격 범위 안에 있다면 일정한 시간 간격으로 플레이어를 공격
         // 2. 플레이어가 공격 범위를 벗어나면 이동 상태(재추격)로 변경
         // 탐지 범위 : 0.0f 이상 ~ 1.5f 미만
+
+        // 몬스터의 공격 딜레이값 증가
+        attackDelayTimer += Time.deltaTime;
+
+        // 공격 딜레이값이 기준값을 넘어섰을 경우
+        if (attackDelayTimer > attackDelay)
+        {
+            // 플레이어 체력 감소
+            // targetObject.GetComponent<PlayerHit>().PlayerHit(enemyAttackValue);
+            Debug.Log("Enemy Attack");
+
+            // 타이머 초기화
+            attackDelayTimer = 0.0f;
+
+            if (Vector3.Distance(transform.position, targetObject.transform.position) > attackRange)
+            {
+                enemyState = EnemyState.Move;
+            }
+        }
     }
     private void Return()
     {
         // 1. 몬스터가 플레이어를 추적하다가 너무 멀리 벗어났을 경우 최초 스폰 위치로 복귀
         // 탐지 범위 : 최초 스폰 위치에서 30.0f 이상
+
+        // 몬스터의 이동 속도 재설정
+        enemyMoveSpeed = 6.0f;
+
+        // 타겟의 방향 구하기
+        moveDirection = spawnPoint - transform.position;
+        moveDirection.Normalize();
+
+        // 최초 스폰 위치를 향해 이동
+        cc.SimpleMove(moveDirection * enemyMoveSpeed);
+
+        // 목표 지점을 향해 바라보기
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), 10.0f * Time.deltaTime);
+    }
+    // 몬스터 피격 시 데미지 계산 함수
+    public void hitDamage(int value)
+    {
+        // 피격 상태이거나 사망 상태일 경우 데미지 계산 무시
+        if (enemyState == EnemyState.Damaged || enemyState == EnemyState.Die)
+        {
+            return;
+        }
+
+        // 들어온 데미지(value) 만큼 몬스터의 체력 감소
+        enemyHP -= value;
+
+        // 몬스터의 체력이 1 이상일 경우 피격 상태로 전환
+        if (enemyHP > 0)
+        {
+            enemyState = EnemyState.Damaged;
+            Damaged();
+        }
+        // 몬스터의 체력이 0일 경우 사망 상태로 전환
+        else
+        {
+            enemyState = EnemyState.Die;
+            Die();
+        }
     }
     private void Damaged()
     {
         // 1. 몬스터의 체력이 1 이상일 경우 피격 상태로 전환 후 다시 이전의 상태로 변경
         // 2. 트랜지션은 Any State 에서 연결
+
+        // 피격 상태를 처리하기 위한 코루틴 실행
+        StartCoroutine(DamageProc());
     }
     private void Die()
     {
         // 1. 몬스터의 체력이 0일 경우 사망 상태로 전환, 그 후 몬스터 오브젝트 삭제
         // 2. 트랜지션은 Any State 에서 연결
+
+        // 진행중인 모든 코루틴 정지
+        StopAllCoroutines();
+
+        // 사망 상태를 처리하기 위한 코루틴 실행
+        StartCoroutine(DieProc());
     }
 
     #endregion
@@ -318,42 +396,59 @@ public class EnemyFSM : MonoBehaviour
     {
         if (enemyState == EnemyState.Attack)
         {
-            while (true)
-            {
-                // 몬스터의 공격 사정거리 안에서 타겟 오브젝트를 추출
-                Collider[] colls = Physics.OverlapSphere(transform.position, attackRange, 1 << targetLayer);
-
-                // 몬스터 공격 애니메이션 실행
-                // Animation Code Here
-
-                // 배열의 개수가 1일 때 타겟 오브젝트가 범위 안에 있다고 판단
-                if (colls.Length == 1)
-                {
-                    // 몬스터와 타겟 오브젝트 사이의 방향 벡터를 계산
-                    Vector3 attackDirection = (targetObject.transform.position - transform.position).normalized;
-
-                    // 타겟 오브젝트가 몬스터의 공격 범위 안에 들어왔는지를 판단
-                    if (Vector3.Angle(transform.forward, attackDirection) < attackAngle * 0.5f)
-                    {
-                        // 타겟 오브젝트의 체력 감소
-                        // Target Object HP Down Here
-                        Debug.Log("Enemy Attack Hit");
-                    }
-                }
-
-                // 2초 대기
-                yield return new WaitForSeconds(2.0f);
-
-                // 몬스터의 공격 사정거리 안에 타겟 오브젝트가 존재하지 않을 경우
-                if (colls.Length == 0)
-                {
-                    break;
-                }
-            }
+            yield return null;
         }
     }
 
     #endregion
+
+    #region 몬스터 피격 데미지
+
+    IEnumerator DamageProc()
+    {
+        // 피격 모션 시간만큼 대기
+        yield return new WaitForSeconds(1.0f);
+
+        // 현재 상태를 이동으로 전환
+        enemyState = EnemyState.Move;
+        print("상태전환 : Damaged -> Move");
+    }
+
+    #endregion
+
+    #region 몬스터 사망
+
+    IEnumerator DieProc()
+    {
+        // 캐릭터 컨트롤러 비활성화
+        cc.enabled = false;
+
+        // 2초 후 자기 자신을 제거
+        yield return new WaitForSeconds(2.0f);
+        print("죽었다!!");
+        Destroy(gameObject);
+    }
+
+    #endregion
+
+    #endregion
+
+    #region 기즈모 출력
+
+    private void OnDrawGizmos()
+    {
+        // 공격 가능한 범위
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+
+        // 플레이어 추적 범위
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, findRange);
+
+        // 이동 가능한 최대 범위
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(spawnPoint, moveRange);
+    }
 
     #endregion
 }
